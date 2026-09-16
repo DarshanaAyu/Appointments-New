@@ -161,15 +161,14 @@ function PrimaryButton({ children, onClick, disabled, full }) {
     </button>
   );
 }
-function StatCard({ label, value, sub, onClick }) {
+function StatCard({ label, value, sub }) {
   const isLongText = typeof value === "string" && value.length > 10;
-  const Tag = onClick ? "button" : "div";
   return (
-    <Tag onClick={onClick} className="rounded-2xl p-3 border min-w-0 text-left w-full" style={{ borderColor: C.line, backgroundColor: "white" }}>
+    <div className="rounded-2xl p-3 border min-w-0" style={{ borderColor: C.line, backgroundColor: "white" }}>
       <div className="text-[11px] truncate" style={{ color: C.inkMuted }}>{label}</div>
       <div className={`serif mt-0.5 break-words ${isLongText ? "text-base" : "text-2xl"}`} style={{ color: C.forest, lineHeight: 1.25 }}>{value}</div>
       {sub && <div className="text-[11px] mt-0.5 truncate" style={{ color: C.inkMuted }}>{sub}</div>}
-    </Tag>
+    </div>
   );
 }
 function Field({ icon, placeholder, value, onChange }) {
@@ -234,80 +233,6 @@ function Row({ label, value }) {
 }
 function BackRow({ label, onBack }) {
   return <button onClick={onBack} className="flex items-center gap-1.5 text-xs" style={{ color: C.inkMuted }}><ArrowLeft size={13} /> {label}</button>;
-}
-function NumericKeypad({ value, onChange }) {
-  function press(key) {
-    if (key === "back") { onChange(value.slice(0, -1)); return; }
-    if (key === "clear") { onChange(""); return; }
-    if (value.replace(/[^0-9]/g, "").length >= 7) return; // cap at 9,999,999
-    onChange(value + key);
-  }
-  const rows = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["clear", "0", "back"]];
-  return (
-    <div className="space-y-2">
-      {rows.map((row, i) => (
-        <div key={i} className="grid grid-cols-3 gap-2">
-          {row.map((k) => (
-            <button
-              key={k} type="button" onClick={() => press(k)}
-              className="rounded-xl py-3 text-lg font-medium active:opacity-70"
-              style={{ backgroundColor: "white", border: `1px solid ${C.line}`, color: k === "clear" ? C.danger : C.ink }}
-            >
-              {k === "back" ? "⌫" : k === "clear" ? "C" : k}
-            </button>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-function CheckoutActions({ appt, onUpdate, onUndoCheckout }) {
-  const [editingAmount, setEditingAmount] = useState(false);
-  const [price, setPrice] = useState(String(appt.price ?? ""));
-  const [confirmingUndo, setConfirmingUndo] = useState(false);
-
-  return (
-    <div className="mt-3">
-      {!editingAmount ? (
-        <div className="flex gap-2">
-          <button
-            onClick={() => { setPrice(String(appt.price ?? "")); setEditingAmount(true); }}
-            className="flex-1 rounded-xl py-2.5 text-xs font-medium border" style={{ borderColor: C.line, color: C.forest }}
-          >
-            Edit amount
-          </button>
-          <button
-            onClick={() => setConfirmingUndo(true)}
-            className="flex-1 rounded-xl py-2.5 text-xs font-medium border" style={{ borderColor: C.danger, color: C.danger }}
-          >
-            Undo checkout
-          </button>
-        </div>
-      ) : (
-        <div className="rounded-2xl p-3" style={{ backgroundColor: C.sageLight }}>
-          <div className="text-xs font-medium mb-2" style={{ color: C.forest }}>Amount charged</div>
-          <div className="rounded-xl p-3 mb-3 text-center border" style={{ borderColor: C.line, backgroundColor: "white" }}>
-            <div className="serif text-3xl" style={{ color: C.forest }}>{price ? fmtLKR(price) : "LKR 0"}</div>
-          </div>
-          <NumericKeypad value={price} onChange={setPrice} />
-          <div className="flex gap-2 mt-3">
-            <PrimaryButton full disabled={!price} onClick={() => { onUpdate({ price: Number(price) }); setEditingAmount(false); }}>Save amount</PrimaryButton>
-            <button onClick={() => setEditingAmount(false)} className="px-3 text-sm" style={{ color: C.inkMuted }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {confirmingUndo && (
-        <div className="rounded-xl p-3 mt-2" style={{ backgroundColor: C.dangerBg }}>
-          <div className="text-sm mb-2" style={{ color: C.ink }}>Undo checkout for {appt.clientName}? This puts the visit back to unbilled.</div>
-          <div className="flex gap-2">
-            <button onClick={() => { onUndoCheckout(); setConfirmingUndo(false); }} className="flex-1 rounded-lg py-2 text-sm font-medium text-white" style={{ backgroundColor: C.danger }}>Yes, undo</button>
-            <button onClick={() => setConfirmingUndo(false)} className="flex-1 rounded-lg py-2 text-sm font-medium border" style={{ borderColor: C.line, color: C.ink }}>Keep it</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 function DurationSlider({ value, max, onChange }) {
   const percent = ((value - SLIDER_MIN) / (max - SLIDER_MIN)) * 100;
@@ -376,8 +301,8 @@ export default function App() {
               {tab === "schedule" && (
                 <ScheduleView appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} />
               )}
-              {tab === "dash" && <Dashboard appointments={appointments} setAppointments={setAppointments} clients={clients} />}
-              {tab === "clients" && <ClientDirectory clients={clients} setClients={setClients} appointments={appointments} setAppointments={setAppointments} />}
+              {tab === "dash" && <Dashboard appointments={appointments} clients={clients} />}
+              {tab === "clients" && <ClientDirectory clients={clients} appointments={appointments} />}
               {tab === "reminders" && <ReminderQueue appointments={appointments} setAppointments={setAppointments} />}
             </div>
           </div>
@@ -447,10 +372,6 @@ function ScheduleView({ appointments, setAppointments, clients, setClients }) {
     await setAppointments(appointments.map((a) => a.id === id ? { ...a, status: "completed", price: Number(price), checkedOutAt: Date.now() } : a));
   }
 
-  async function handleUndoCheckout(id) {
-    await setAppointments(appointments.map((a) => a.id === id ? { ...a, status: "booked", price: null, checkedOutAt: null } : a));
-  }
-
   async function handleMarkSent(id) {
     await setAppointments(appointments.map((a) => a.id === id ? { ...a, reminders: { ...a.reminders, sent: true } } : a));
   }
@@ -461,7 +382,7 @@ function ScheduleView({ appointments, setAppointments, clients, setClients }) {
 
   if (viewingId) {
     const appt = appointments.find((a) => a.id === viewingId);
-    if (appt) return <ApptDetailPanel appt={appt} allAppointments={appointments} onBack={() => setViewingId(null)} onDelete={() => handleDelete(appt.id)} onCheckout={(price) => handleCheckout(appt.id, price)} onUndoCheckout={() => handleUndoCheckout(appt.id)} onMarkSent={() => handleMarkSent(appt.id)} onUpdate={(patch) => handleUpdate(appt.id, patch)} />;
+    if (appt) return <ApptDetailPanel appt={appt} allAppointments={appointments} onBack={() => setViewingId(null)} onDelete={() => handleDelete(appt.id)} onCheckout={(price) => handleCheckout(appt.id, price)} onMarkSent={() => handleMarkSent(appt.id)} onUpdate={(patch) => handleUpdate(appt.id, patch)} />;
   }
 
   return (
@@ -608,7 +529,7 @@ function QuickAddPanel({ dateKey, startMin, dayAppts, clients, onCancel, onSave 
   );
 }
 
-function ApptDetailPanel({ appt, allAppointments, onBack, onDelete, onCheckout, onUndoCheckout, onMarkSent, onUpdate }) {
+function ApptDetailPanel({ appt, allAppointments, onBack, onDelete, onCheckout, onMarkSent, onUpdate }) {
   const [confirming, setConfirming] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [price, setPrice] = useState("");
@@ -797,21 +718,17 @@ function ApptDetailPanel({ appt, allAppointments, onBack, onDelete, onCheckout, 
             <PrimaryButton full onClick={() => setCheckingOut(true)}>Checkout &amp; add price</PrimaryButton>
           ) : (
             <div className="rounded-2xl p-3" style={{ backgroundColor: C.sageLight }}>
-              <div className="text-xs font-medium mb-2" style={{ color: C.forest }}>Amount charged</div>
-              <div className="rounded-xl p-3 mb-3 text-center border" style={{ borderColor: C.line, backgroundColor: "white" }}>
-                <div className="serif text-3xl" style={{ color: C.forest }}>{price ? fmtLKR(price) : "LKR 0"}</div>
-              </div>
-              <NumericKeypad value={price} onChange={setPrice} />
-              <div className="flex gap-2 mt-3">
+              <div className="text-xs font-medium mb-2" style={{ color: C.forest }}>Amount charged (LKR)</div>
+              <input type="number" placeholder="e.g. 3500" value={price} onChange={(e) => setPrice(e.target.value)}
+                className="w-full rounded-lg p-2.5 text-sm outline-none border mb-2" style={{ borderColor: C.line }} />
+              <div className="flex gap-2">
                 <PrimaryButton full disabled={!price} onClick={() => onCheckout(price)}>Confirm checkout</PrimaryButton>
-                <button onClick={() => { setCheckingOut(false); setPrice(""); }} className="px-3 text-sm" style={{ color: C.inkMuted }}>Cancel</button>
+                <button onClick={() => setCheckingOut(false)} className="px-3 text-sm" style={{ color: C.inkMuted }}>Cancel</button>
               </div>
             </div>
           )}
         </div>
       )}
-
-      {done && <CheckoutActions appt={appt} onUpdate={onUpdate} onUndoCheckout={onUndoCheckout} />}
 
       {!done && !checkingOut && (
         <div className="mt-4">
@@ -835,8 +752,7 @@ function ApptDetailPanel({ appt, allAppointments, onBack, onDelete, onCheckout, 
 /* ==================================================================== */
 /* DASHBOARD                                                             */
 /* ==================================================================== */
-function Dashboard({ appointments, setAppointments, clients }) {
-  const [view, setView] = useState("overview");
+function Dashboard({ appointments, clients }) {
   const todayKey = toKey(new Date());
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const weekStart = startOfWeek(new Date());
@@ -857,16 +773,12 @@ function Dashboard({ appointments, setAppointments, clients }) {
     revenue: appointments.filter((a) => a.dateKey === key && completed(a)).reduce((sum, a) => sum + (a.price || 0), 0),
   }));
 
-  if (view === "checkouts") {
-    return <CheckoutLog appointments={appointments} setAppointments={setAppointments} onBack={() => setView("overview")} />;
-  }
-
   return (
     <div className="p-5">
       <div className="serif text-xl" style={{ color: C.forest }}>Dashboard</div>
       <div className="grid grid-cols-2 gap-2 mt-3">
         <StatCard label="Today's appointments" value={todayCount} />
-        <StatCard label="This week's revenue" value={fmtLKR(weekRevenue)} onClick={() => setView("checkouts")} />
+        <StatCard label="This week's revenue" value={fmtLKR(weekRevenue)} />
         <StatCard label="Total clients" value={clients.length} />
         <StatCard label="Pending checkout" value={pendingCheckout} sub={pendingCheckout ? "Past visits not billed yet" : null} />
       </div>
@@ -910,100 +822,13 @@ function Dashboard({ appointments, setAppointments, clients }) {
 }
 
 /* ==================================================================== */
-/* CHECKOUT LOG                                                          */
-/* ==================================================================== */
-function CheckoutLog({ appointments, setAppointments, onBack }) {
-  const [query, setQuery] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [openId, setOpenId] = useState(null);
-
-  const checkedOut = appointments.filter((a) => a.status === "completed");
-  const filtered = checkedOut
-    .filter((a) => !query || a.clientName.toLowerCase().includes(query.toLowerCase()))
-    .filter((a) => !dateFilter || a.dateKey === dateFilter)
-    .sort((a, b) => (b.checkedOutAt || 0) - (a.checkedOutAt || 0));
-  const total = filtered.reduce((sum, a) => sum + (a.price || 0), 0);
-
-  async function updateAppt(id, patch) {
-    await setAppointments(appointments.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-  }
-  async function undoCheckout(id) {
-    await setAppointments(appointments.map((a) => (a.id === id ? { ...a, status: "booked", price: null, checkedOutAt: null } : a)));
-    setOpenId(null);
-  }
-
-  return (
-    <div className="p-5">
-      <BackRow label="Back to dashboard" onBack={onBack} />
-      <div className="serif text-xl mt-3" style={{ color: C.forest }}>Checked-out visits</div>
-
-      <div className="mt-3 space-y-2">
-        <Field icon={<Search size={15} />} placeholder="Filter by patient" value={query} onChange={setQuery} />
-        <div className="flex items-center gap-2">
-          <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
-            className="flex-1 rounded-xl p-2.5 text-sm outline-none border" style={{ borderColor: C.line, backgroundColor: "white" }} />
-          {dateFilter && <button onClick={() => setDateFilter("")} className="text-xs flex-shrink-0" style={{ color: C.inkMuted }}>Clear</button>}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border p-3 mt-3 flex items-center justify-between" style={{ borderColor: C.line, backgroundColor: "white" }}>
-        <span className="text-xs" style={{ color: C.inkMuted }}>{filtered.length} visit{filtered.length !== 1 ? "s" : ""}</span>
-        <span className="serif text-lg" style={{ color: C.forest }}>{fmtLKR(total)}</span>
-      </div>
-
-      <div className="mt-3 space-y-2">
-        {filtered.length === 0 && <div className="text-sm text-center py-8" style={{ color: C.inkMuted }}>No checked-out visits match.</div>}
-        {filtered.map((a) => {
-          const open = openId === a.id;
-          return (
-            <div key={a.id} className="rounded-2xl border overflow-hidden" style={{ borderColor: C.line, backgroundColor: "white" }}>
-              <button className="w-full text-left p-3 flex items-center justify-between gap-2" onClick={() => setOpenId(open ? null : a.id)}>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: C.ink }}>{a.clientName}</div>
-                  <div className="text-xs mt-0.5" style={{ color: C.inkMuted }}>{shortDateLabel(a.dateKey)} · {minutesToLabel(a.startMin)}</div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="serif text-base" style={{ color: C.forest }}>{fmtLKR(a.price)}</span>
-                  <ChevronRight size={16} color={C.inkMuted} style={{ transform: open ? "rotate(90deg)" : "none" }} />
-                </div>
-              </button>
-              {open && (
-                <div className="px-3 pb-3">
-                  <CheckoutActions appt={a} onUpdate={(patch) => updateAppt(a.id, patch)} onUndoCheckout={() => undoCheckout(a.id)} />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ==================================================================== */
 /* CLIENTS                                                               */
 /* ==================================================================== */
-function ClientDirectory({ clients, setClients, appointments, setAppointments }) {
+function ClientDirectory({ clients, appointments }) {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState(null);
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query))
     .sort((a, b) => (b.lastVisit || "").localeCompare(a.lastVisit || ""));
-
-  async function updateClient(client, patch) {
-    await setClients(clients.map((c) => (c.id === client.id ? { ...c, ...patch } : c)));
-    // Keep past appointments in sync so a client's history stays linked after an edit.
-    if (patch.phone !== undefined || patch.name !== undefined) {
-      await setAppointments(appointments.map((a) =>
-        a.clientPhone === client.phone
-          ? { ...a, clientPhone: patch.phone ?? a.clientPhone, clientName: patch.name ?? a.clientName }
-          : a
-      ));
-    }
-  }
-  async function deleteClient(id) {
-    await setClients(clients.filter((c) => c.id !== id));
-    if (openId === id) setOpenId(null);
-  }
 
   return (
     <div className="p-5">
@@ -1013,78 +838,30 @@ function ClientDirectory({ clients, setClients, appointments, setAppointments })
         {filtered.length === 0 && <div className="text-sm text-center py-8" style={{ color: C.inkMuted }}>No clients yet.</div>}
         {filtered.map((c) => {
           const history = appointments.filter((a) => a.clientPhone === c.phone).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+          const open = openId === c.id;
           return (
-            <ClientRow key={c.id} client={c} history={history} open={openId === c.id}
-              onToggle={() => setOpenId(openId === c.id ? null : c.id)}
-              onUpdate={(patch) => updateClient(c, patch)}
-              onDelete={() => deleteClient(c.id)}
-            />
+            <div key={c.id} className="rounded-2xl border overflow-hidden" style={{ borderColor: C.line, backgroundColor: "white" }}>
+              <button className="w-full text-left p-3 flex items-center justify-between gap-2" onClick={() => setOpenId(open ? null : c.id)}>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate" style={{ color: C.ink }}>{c.name}</div>
+                  <div className="text-xs mt-0.5 truncate" style={{ color: C.inkMuted }}>{c.phone} · {c.visits} visit{c.visits > 1 ? "s" : ""}</div>
+                </div>
+                <ChevronRight size={16} color={C.inkMuted} style={{ transform: open ? "rotate(90deg)" : "none", flexShrink: 0 }} />
+              </button>
+              {open && (
+                <div className="px-3 pb-3 space-y-1.5">
+                  {history.map((a) => (
+                    <div key={a.id} className="text-xs flex justify-between gap-2" style={{ color: C.inkMuted }}>
+                      <span className="truncate min-w-0">{formatDuration(a.duration)}{a.status === "completed" ? ` · ${fmtLKR(a.price)}` : " · unbilled"}</span>
+                      <span className="flex-shrink-0">{shortDateLabel(a.dateKey)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
-    </div>
-  );
-}
-function ClientRow({ client, history, open, onToggle, onUpdate, onDelete }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(client.name);
-  const [phone, setPhone] = useState(client.phone);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const totalRevenue = history.filter((a) => a.status === "completed").reduce((sum, a) => sum + (a.price || 0), 0);
-
-  function saveEdit() {
-    if (!name.trim()) return;
-    onUpdate({ name: name.trim(), phone: phone.trim() });
-    setEditing(false);
-  }
-
-  return (
-    <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.line, backgroundColor: "white" }}>
-      <button className="w-full text-left p-3 flex items-center justify-between gap-2" onClick={onToggle}>
-        <div className="min-w-0">
-          <div className="text-sm font-medium truncate" style={{ color: C.ink }}>{client.name}</div>
-          <div className="text-xs mt-0.5 truncate" style={{ color: C.inkMuted }}>
-            {client.phone} · {client.visits} visit{client.visits > 1 ? "s" : ""} · {fmtLKR(totalRevenue)}
-          </div>
-        </div>
-        <ChevronRight size={16} color={C.inkMuted} style={{ transform: open ? "rotate(90deg)" : "none", flexShrink: 0 }} />
-      </button>
-      {open && (
-        <div className="px-3 pb-3 space-y-3">
-          {editing ? (
-            <div className="space-y-2">
-              <Field icon={<User size={15} />} placeholder="Patient name" value={name} onChange={setName} />
-              <Field icon={<Phone size={15} />} placeholder="Phone number" value={phone} onChange={setPhone} />
-              <div className="flex gap-2">
-                <PrimaryButton full onClick={saveEdit}>Save</PrimaryButton>
-                <button onClick={() => { setEditing(false); setName(client.name); setPhone(client.phone); }} className="px-3 text-sm" style={{ color: C.inkMuted }}>Cancel</button>
-              </div>
-            </div>
-          ) : !confirmingDelete ? (
-            <div className="flex gap-2">
-              <button onClick={() => setEditing(true)} className="flex-1 rounded-xl py-2 text-xs font-medium border" style={{ borderColor: C.line, color: C.forest }}>Edit details</button>
-              <button onClick={() => setConfirmingDelete(true)} className="flex-1 rounded-xl py-2 text-xs font-medium border" style={{ borderColor: C.danger, color: C.danger }}>Delete client</button>
-            </div>
-          ) : (
-            <div className="rounded-xl p-3" style={{ backgroundColor: C.dangerBg }}>
-              <div className="text-sm mb-2" style={{ color: C.ink }}>Delete {client.name} from your client list? Their past appointments stay on the schedule.</div>
-              <div className="flex gap-2">
-                <button onClick={onDelete} className="flex-1 rounded-lg py-2 text-sm font-medium text-white" style={{ backgroundColor: C.danger }}>Yes, delete</button>
-                <button onClick={() => setConfirmingDelete(false)} className="flex-1 rounded-lg py-2 text-sm font-medium border" style={{ borderColor: C.line, color: C.ink }}>Keep</button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            {history.map((a) => (
-              <div key={a.id} className="text-xs flex justify-between gap-2" style={{ color: C.inkMuted }}>
-                <span className="truncate min-w-0">{formatDuration(a.duration)}{a.status === "completed" ? ` · ${fmtLKR(a.price)}` : " · unbilled"}</span>
-                <span className="flex-shrink-0">{shortDateLabel(a.dateKey)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
